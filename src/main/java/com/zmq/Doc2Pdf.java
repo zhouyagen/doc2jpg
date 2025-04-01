@@ -5,8 +5,10 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.util.List;
+import java.util.Objects;
 
 import javax.imageio.ImageIO;
+import javax.xml.namespace.QName;
 
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -22,11 +24,13 @@ import org.apache.poi.xwpf.usermodel.XWPFTable;
 import org.apache.poi.xwpf.usermodel.XWPFTableCell;
 import org.apache.poi.xwpf.usermodel.XWPFTableRow;
 import org.apache.xmlbeans.XmlException;
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTDrawing;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTFonts;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTHpsMeasure;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTOnOff;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTSpacing;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTTcPr;
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTText;
 
 import com.itextpdf.forms.PdfAcroForm;
 import com.itextpdf.forms.fields.CheckBoxFormFieldBuilder;
@@ -97,26 +101,37 @@ public class Doc2Pdf {
                 try{
                     font = PdfFontFactory.createFont(getFont.getFontName());
                 }catch(Exception e){}
-                Paragraph p  = new Paragraph(paragraph.getText());
+                Paragraph p  = new Paragraph();
                 p.setFontSize(getFont.getSize());
                 p.setFont(font);
                 TextAlignment alignment = coverAlign(paragraphAlignment);
                 p.setTextAlignment(alignment);
-                document.add(p);
+                // document.add(p);
                 
                 for(XWPFRun run : paragraph.getRuns()){
+                    if(Objects.nonNull(run.getCTR())){
+                        for(CTText t : run.getCTR().getTList()){
+                            p.add(t.getStringValue());                            
+                        }
+                    }
                     List<XWPFPicture> pictures = run.getEmbeddedPictures();
                     if(CollectionUtils.isEmpty(pictures)){
                         continue;
                     }
-                    for (XWPFPicture picture : pictures) {
+                    for (XWPFPicture picture : pictures) {       
+                        document.add(p);
+                        p = new Paragraph();                           
+                        p.setTextAlignment(TextAlignment.CENTER);                                       
                         XWPFPictureData pictureData = picture.getPictureData();
                         byte[] imageBytes = pictureData.getData();
                         Image img = new Image(ImageDataFactory.create(imageBytes));
-                        img.setWidth(UnitValue.createPercentValue(100));
-                        document.add(img);
+                        Double percese = picture.getWidth() / 630 * 100;
+                        img.setWidth(UnitValue.createPercentValue(percese.floatValue()));
+                        img.setRelativePosition(10,0,0,0);
+                        p.add(img);
                     }
                 }
+                document.add(p);
 
             } else if (element instanceof XWPFTable) {
                 // 处理表格
